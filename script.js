@@ -1,3 +1,6 @@
+const SUPABASE_URL = 'URL_PROYEK_ANDA_DI_SINI';
+const SUPABASE_KEY = 'ANON_KEY_ANDA_DI_SINI';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ══════════════════════════════════════════════════
    JADWAL — 5 HARI SEKALI, mulai 25 Apr 2025
    Sistem berulang otomatis setiap 30 hari (6 giliran × 5 hari)
@@ -108,30 +111,47 @@ const ALL_MEMBERS = GROUPS.flatMap(g => g.persons.map((p,i)=>({name:p,photo:g.ph
   ui(); start();
 })();
 
-/* ──────────────────────────────────────────
-   HELPERS
-────────────────────────────────────────── */
-const today=new Date(); today.setHours(0,0,0,0);
-let weekOffset=0;
+/* GANTI BAGIAN LOCALSTORAGE MENJADI INI */
+let doneMap = {};
 
-const DAY_S=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-const DAY_F=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-const MON_S=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-const MON_F=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+// Fungsi ambil data dari database
+async function loadData() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('jadwal_piket')
+      .select('tanggal, is_done');
 
-function fmtDate(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if (error) throw error;
+
+    doneMap = {};
+    if (data) {
+      data.forEach(item => {
+        doneMap[item.tanggal] = item.is_done;
+      });
+    }
+    
+    // Render ulang setelah data masuk
+    renderSchedule();
+    renderStrip();
+    renderMembers();
+  } catch (err) {
+    console.error('Error load Supabase:', err.message);
+  }
 }
 
-const todayKey=fmtDate(today);
+// Fungsi simpan data ke database
+async function saveData(tanggal, isDone) {
+  try {
+    const { error } = await supabaseClient
+      .from('jadwal_piket')
+      .upsert({ tanggal: tanggal, is_done: isDone }, { onConflict: 'tanggal' });
 
-/* localStorage */
-const STORE='naga_hitam_v2';
-let doneMap={};
-function loadLocal(){ try{ doneMap=JSON.parse(localStorage.getItem(STORE))||{}; }catch{ doneMap={}; } }
-function saveLocal(){ localStorage.setItem(STORE,JSON.stringify(doneMap)); }
-loadLocal();
-
+    if (error) throw error;
+  } catch (err) {
+    console.error('Error save Supabase:', err.message);
+    showToast('❌ Gagal menyimpan ke cloud');
+  }
+}
 /* ──────────────────────────────────────────
    CLOCK
 ────────────────────────────────────────── */
@@ -260,18 +280,25 @@ function renderSchedule(){
 
   grid.innerHTML=html;
 
-  grid.querySelectorAll('.done-toggle').forEach(chk=>{
-    chk.addEventListener('change',function(){
-      const dk=this.dataset.dk;
-      if(this.checked) doneMap[dk]=true;
-      else delete doneMap[dk];
-      saveLocal();
-      renderSchedule();
-      renderStrip();
-      renderMembers();
-      showToast(this.checked?'✅ Piket ditandai selesai!':'↩ Tanda dibatalkan');
-    });
+  grid.querySelectorAll('.done-toggle').forEach(chk => {
+  chk.addEventListener('change', async function() {
+    const dk = this.dataset.dk;
+    const isChecked = this.checked;
+
+    // Update lokal dulu agar tidak terasa lambat
+    if (isChecked) doneMap[dk] = true;
+    else delete doneMap[dk];
+
+    // Simpan ke Supabase
+    await saveData(dk, isChecked);
+
+    // Update tampilan
+    renderSchedule();
+    renderStrip();
+    renderMembers();
+    showToast(isChecked ? '✅ Tersimpan di Cloud' : '↩ Tanda dibatalkan');
   });
+});
 }
 
 /* ──────────────────────────────────────────
@@ -320,8 +347,11 @@ document.getElementById('btn-next').onclick=()=>{ weekOffset++; renderSchedule()
 document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(); showToast('↩ Kembali ke minggu ini'); };
 
 /* ──────────────────────────────────────────
-   INIT
+   INIT (Versi Supabase)
 ────────────────────────────────────────── */
+// Panggil fungsi untuk mengambil data dari cloud
+loadData(); 
+
+// Jalankan jam dan strip hari ini (tetap diperlukan)
 renderStrip();
-renderSchedule();
-renderMembers();
+clock(); // Pastikan fungsi clock juga terpanggil jika ada
