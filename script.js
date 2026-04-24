@@ -133,8 +133,7 @@ async function uploadFoto(tanggal, file) {
     const fileName = `${tanggal}-${Date.now()}.jpg`;
     const { error: upErr } = await db.storage
       .from(foto-piket)
-      .upload(fileName, file, { upsert: true, contentType: file.type });
-
+    .upload(fileName, file, { upsert: true, contentType: file.type });
     if (upErr) throw upErr;
 
     /* 2. Ambil URL publik */
@@ -426,11 +425,13 @@ function renderSchedule() {
 
   /* Bind file upload */
   grid.querySelectorAll('input[type="file"][data-dk]').forEach(input => {
-    input.onchange = function () {
-      const file = this.files[0];
-      if (file) uploadFoto(this.dataset.dk, file);
-    };
-  });
+   input.onchange = function () {
+  const file = this.files[0]; // Ambil file fotonya (PENTING!)
+  if (file) {
+    uploadFoto(this.dataset.dk, file);
+    this.value = ''; // Kosongkan input supaya bisa upload ulang foto yang sama
+  }
+};
 }
 
 /* ══════════════════════════════════════════════════════
