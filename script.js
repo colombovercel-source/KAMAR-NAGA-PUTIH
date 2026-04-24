@@ -9,7 +9,7 @@ const TABLE  = 'KAMAR-NAGA-PUTIH';
 const BUCKET = 'foto-piket';
 
 /* ══════════════════════════════════════════════════════
-   2. DATA MASTER JADWAL
+   2. DATA MASTER JADWAL (DENGAN FOTO)
 ══════════════════════════════════════════════════════ */
 const GROUPS = [
   { persons: ['Jufri', 'Ardi'], photos: ['https://i.imgur.com/YPuXfjB.png', 'https://i.imgur.com/YPuXfjB.png'] },
@@ -20,15 +20,22 @@ const GROUPS = [
   { persons: ['Imanuel', 'Dandi'], photos: ['https://i.imgur.com/JADPNwJ.png', 'https://i.imgur.com/JADPNwJ.png'] },
 ];
 
-// Anchor awal jadwal (25 April 2026)
 const ANCHOR = new Date('2026-04-25'); 
 ANCHOR.setHours(0,0,0,0);
 
 const CYCLE_DAYS = 5;
-const ALL_MEMBERS = GROUPS.flatMap(g => g.persons.map((p,i) => ({ name: p, photo: g.photos[i] })));
+// Mengambil daftar unik semua anggota beserta fotonya
+const ALL_MEMBERS = [];
+GROUPS.forEach(g => {
+    g.persons.forEach((p, i) => {
+        if (!ALL_MEMBERS.find(m => m.name === p)) {
+            ALL_MEMBERS.push({ name: p, photo: g.photos[i] });
+        }
+    });
+});
 
 /* ══════════════════════════════════════════════════════
-   3. STATE & HELPER
+   3. STATE & HELPERS
 ══════════════════════════════════════════════════════ */
 const today = new Date(); today.setHours(0,0,0,0);
 const todayKey = fmtDate(today);
@@ -54,8 +61,7 @@ function getGroupForDate(date) {
 function showToast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(t._tid);
   t._tid = setTimeout(() => t.classList.remove('show'), 2600);
 }
@@ -67,213 +73,165 @@ function refreshUI() {
 }
 
 /* ══════════════════════════════════════════════════════
-   4. SUPABASE FUNCTIONS
+   4. SUPABASE ACTIONS
 ══════════════════════════════════════════════════════ */
 async function loadData() {
   try {
-    const { data, error } = await db.from(TABLE).select('tanggal, is_done, foto_url');
+    const { data, error } = await db.from(TABLE).select('*');
     if (error) throw error;
     doneMap = {};
     (data || []).forEach(row => {
       doneMap[row.tanggal] = { is_done: row.is_done, foto_url: row.foto_url };
     });
-  } catch (err) {
-    console.warn('Load gagal:', err.message);
-  } finally {
-    refreshUI();
-  }
+  } catch (err) { console.warn('Offline/Load Error'); }
+  finally { refreshUI(); }
 }
 
 async function saveStatus(tanggal, isDone) {
-  try {
-    const { error } = await db.from(TABLE).upsert({ tanggal, is_done: isDone }, { onConflict: 'tanggal' });
-    if (error) throw error;
-  } catch (err) {
-    showToast('❌ Gagal sinkron database');
-  }
+  await db.from(TABLE).upsert({ tanggal, is_done: isDone }, { onConflict: 'tanggal' });
 }
 
 async function uploadFoto(tanggal, file) {
-  if (!file) return;
-  showToast('⏳ Mengunggah foto...');
-  try {
-    const fileName = `${tanggal}-${Date.now()}.jpg`;
-    const { error: upErr } = await db.storage.from(BUCKET).upload(fileName, file);
-    if (upErr) throw upErr;
-
-    const { data: urlData } = db.storage.from(BUCKET).getPublicUrl(fileName);
-    const fotoUrl = urlData.publicUrl;
-
-    await db.from(TABLE).upsert({ tanggal, is_done: true, foto_url: fotoUrl }, { onConflict: 'tanggal' });
-    
-    doneMap[tanggal] = { is_done: true, foto_url: fotoUrl };
-    refreshUI();
-    showToast('📸 Bukti piket tersimpan!');
-  } catch (err) {
-    showToast('❌ Gagal upload foto');
-  }
+  showToast('⏳ Uploading...');
+  const fileName = `${tanggal}-${Date.now()}.jpg`;
+  await db.storage.from(BUCKET).upload(fileName, file);
+  const { data } = db.storage.from(BUCKET).getPublicUrl(fileName);
+  const url = data.publicUrl;
+  await db.from(TABLE).upsert({ tanggal, is_done: true, foto_url: url }, { onConflict: 'tanggal' });
+  doneMap[tanggal] = { is_done: true, foto_url: url };
+  refreshUI();
+  showToast('📸 Berhasil!');
 }
 
 function listenRealtime() {
-  db.channel('naga-putih').on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, payload => {
-    const row = payload.new || {};
-    if (row.tanggal) {
-      doneMap[row.tanggal] = { is_done: row.is_done, foto_url: row.foto_url };
-      refreshUI();
-    }
+  db.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, payload => {
+    const r = payload.new;
+    if (r) { doneMap[r.tanggal] = { is_done: r.is_done, foto_url: r.foto_url }; refreshUI(); }
   }).subscribe();
 }
 
 /* ══════════════════════════════════════════════════════
-   5. SLIDER AUTO-BANNER
+   5. SLIDER BANNER
 ══════════════════════════════════════════════════════ */
 (function initSlider() {
-  const TOTAL = 7; const INTERVAL = 2500;
+  const TOTAL = 7; const INTERVAL = 3000;
   const track = document.getElementById('sliderTrack');
-  const dotsWrap = document.getElementById('sDots');
   const bar = document.getElementById('sBar');
-  if (!track || !dotsWrap) return;
+  let cur = 0, t0 = performance.now();
 
-  let cur = 0, timer = null, raf = null, t0 = null;
-
-  for (let i = 0; i < TOTAL; i++) {
-    const d = document.createElement('button');
-    d.className = 'dot' + (i === 0 ? ' active' : '');
-    d.onclick = () => { cur = i; updateUI(); reset(); };
-    dotsWrap.appendChild(d);
-  }
-
-  function updateUI() {
-    track.style.transform = `translateX(-${cur * 100}%)`;
-    const ctr = document.getElementById('sCtr');
-    if(ctr) ctr.textContent = `${cur + 1} / ${TOTAL}`;
-    dotsWrap.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === cur));
-  }
-
-  function startProgress() {
-    cancelAnimationFrame(raf);
+  function move() {
+    cur = (cur + 1) % TOTAL;
+    if(track) track.style.transform = `translateX(-${cur * 100}%)`;
     t0 = performance.now();
-    function step(now) {
-      const pct = Math.min(((now - t0) / INTERVAL) * 100, 100);
-      if (bar) bar.style.width = pct + '%';
-      if (pct < 100) raf = requestAnimationFrame(step);
-    }
-    raf = requestAnimationFrame(step);
   }
-
-  function start() {
-    startProgress();
-    timer = setInterval(() => { cur = (cur + 1) % TOTAL; updateUI(); startProgress(); }, INTERVAL);
+  
+  let timer = setInterval(move, INTERVAL);
+  
+  function frame(now) {
+    const p = Math.min(((now - t0) / INTERVAL) * 100, 100);
+    if (bar) bar.style.width = p + '%';
+    requestAnimationFrame(frame);
   }
-
-  function reset() { clearInterval(timer); cancelAnimationFrame(raf); start(); }
-
-  document.getElementById('sPrev').onclick = () => { cur = (cur + TOTAL - 1) % TOTAL; updateUI(); reset(); };
-  document.getElementById('sNext').onclick = () => { cur = (cur + 1) % TOTAL; updateUI(); reset(); };
-
-  updateUI(); start();
+  requestAnimationFrame(frame);
 })();
 
 /* ══════════════════════════════════════════════════════
-   6. RENDER UI FUNCTIONS
+   6. RENDER UI (LENGKAP DENGAN FOTO)
 ══════════════════════════════════════════════════════ */
 function renderStrip() {
-  const strip = document.getElementById('today-strip');
   const txt = document.getElementById('strip-text');
-  if (!strip || !txt) return;
-  strip.className = 'today-strip';
-  if (today.getDay() === 0) {
-    strip.classList.add('holiday');
-    txt.textContent = 'Hari ini Minggu — Libur piket! 🎉';
-    return;
-  }
   const grp = getGroupForDate(today);
-  const data = doneMap[todayKey];
-  strip.classList.add('on-duty');
-  if (grp) {
-    txt.innerHTML = (data && data.is_done) ? `✅ Piket <strong>${grp.persons.join(' & ')}</strong> Selesai!` : `🧹 Giliran: <strong>${grp.persons.join(' & ')}</strong>`;
+  if (!txt) return;
+
+  if (today.getDay() === 0) {
+    txt.innerHTML = `🎉 Hari ini Minggu — <b>Libur Piket!</b>`;
+  } else if (grp) {
+    const isDone = doneMap[todayKey]?.is_done;
+    txt.innerHTML = isDone 
+      ? `✅ Piket <b>${grp.persons.join(' & ')}</b> Selesai!` 
+      : `🧹 Jadwal: <b>${grp.persons.join(' & ')}</b>`;
   } else {
-    txt.innerHTML = `📅 Tidak ada jadwal piket hari ini`;
+    txt.innerHTML = `📅 Tidak ada jadwal piket.`;
   }
 }
 
 function renderSchedule() {
   const grid = document.getElementById('sched');
   if (!grid) return;
+
   const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - dow + weekOffset * 7);
-
-  const dates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday); d.setDate(monday.getDate() + i); return d;
-  });
-
-  document.getElementById('week-label').textContent = dates[0].getDate() + ' ' + MON_S[dates[0].getMonth()] + ' – ' + dates[6].getDate() + ' ' + MON_S[dates[6].getMonth()] + ' ' + dates[6].getFullYear();
+  const mon = new Date(today); mon.setDate(today.getDate() - dow + weekOffset * 7);
+  
+  document.getElementById('week-label').textContent = `Minggu Ke-${weekOffset >= 0 ? weekOffset + 1 : weekOffset}`;
 
   let html = '';
-  dates.forEach((date, idx) => {
-    const dkey = fmtDate(date);
-    const isSun = date.getDay() === 0;
-    const isToday = dkey === todayKey;
-    const rowData = doneMap[dkey] || { is_done: false, foto_url: null };
-    const grp = getGroupForDate(date);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const dk = fmtDate(d);
+    const grp = getGroupForDate(d);
+    const row = doneMap[dk] || { is_done: false, foto_url: null };
 
-    let body = isSun ? `<div class="holiday-pill">🔴 Libur</div>` : grp ? `
-      <div class="persons-row">
-        <div class="persons-list">${grp.persons.map((p, i) => `<div class="person-chip"><span class="person-nm">${p}</span></div>`).join('')}</div>
-        <input class="done-toggle" type="checkbox" id="chk-${dkey}" data-dk="${dkey}" ${rowData.is_done ? 'checked' : ''}>
+    html += `
+    <div class="day-card ${dk === todayKey ? 'is-today' : ''} ${row.is_done ? 'done-card' : ''}">
+      <div class="date-col"><b>${DAY_S[d.getDay()]}</b><br>${d.getDate()}</div>
+      <div class="card-body">
+        ${d.getDay() === 0 ? '<div class="holiday-pill">Libur</div>' : grp ? `
+          <div class="persons-list">
+            ${grp.persons.map((p, idx) => `
+              <div class="person-chip">
+                <img src="${grp.photos[idx]}" class="av-mini">
+                <span>${p}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="action-row">
+            <input type="checkbox" class="done-toggle" data-dk="${dk}" ${row.is_done ? 'checked' : ''}>
+            <label class="btn-up">📸<input type="file" data-dk="${dk}" accept="image/*" hidden></label>
+            ${row.foto_url ? `<img src="${row.foto_url}" class="proof-mini" onclick="window.open('${row.foto_url}')">` : ''}
+          </div>
+        ` : 'Kosong'}
       </div>
-      <div class="proof-section">
-        ${rowData.foto_url ? `<img src="${rowData.foto_url}" class="proof-preview" onclick="window.open('${rowData.foto_url}')">` : ''}
-        <label class="upload-label">📸 <input type="file" accept="image/*" data-dk="${dkey}" style="display:none"> Upload</label>
-      </div>` : `<div class="no-sched">Kosong</div>`;
-
-    html += `<div class="day-card ${isToday ? 'is-today' : ''} ${rowData.is_done ? 'done-card' : ''}">
-      <div class="date-col"><b>${DAY_S[date.getDay()]}</b><br>${date.getDate()}</div>
-      <div class="card-body">${body}</div>
     </div>`;
-  });
+  }
   grid.innerHTML = html;
 
-  grid.querySelectorAll('.done-toggle').forEach(chk => {
-    chk.onchange = async (e) => {
-      const dk = e.target.dataset.dk;
-      doneMap[dk] = { ...doneMap[dk], is_done: e.target.checked };
-      refreshUI();
-      await saveStatus(dk, e.target.checked);
-    };
+  grid.querySelectorAll('.done-toggle').forEach(el => {
+    el.onchange = (e) => { saveStatus(e.target.dataset.dk, e.target.checked); loadData(); };
   });
-
-  grid.querySelectorAll('input[type="file"]').forEach(inp => {
-    inp.onchange = (e) => { if(e.target.files[0]) uploadFoto(e.target.dataset.dk, e.target.files[0]); };
+  grid.querySelectorAll('input[type="file"]').forEach(el => {
+    el.onchange = (e) => { if(e.target.files[0]) uploadFoto(e.target.dataset.dk, e.target.files[0]); };
   });
 }
 
 function renderMembers() {
   const grid = document.getElementById('members');
   if (!grid) return;
-  let html = '';
-  ALL_MEMBERS.forEach(m => {
-    let count = Object.keys(doneMap).filter(dk => doneMap[dk].is_done && getGroupForDate(dk)?.persons.includes(m.name)).length;
-    html += `<div class="member-card"><b>${m.name}</b><br>Selesai: ${count}x</div>`;
-  });
-  grid.innerHTML = html;
+
+  grid.innerHTML = ALL_MEMBERS.map(m => {
+    const count = Object.keys(doneMap).filter(k => doneMap[k].is_done && getGroupForDate(k)?.persons.includes(m.name)).length;
+    return `
+      <div class="member-card">
+        <img src="${m.photo}" class="member-photo">
+        <div class="member-info">
+          <div class="name">${m.name}</div>
+          <div class="count">Total Piket: <b>${count}</b></div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ══════════════════════════════════════════════════════
-   7. INISIALISASI
+   7. RUN
 ══════════════════════════════════════════════════════ */
-function updateClock() {
-  const n = new Date();
-  if (document.getElementById('live-date')) document.getElementById('live-date').textContent = DAY_F[n.getDay()] + ', ' + n.getDate() + ' ' + MON_F[n.getMonth()] + ' ' + n.getFullYear();
-  if (document.getElementById('live-time')) document.getElementById('live-time').textContent = String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0') + ':' + String(n.getSeconds()).padStart(2, '0');
-}
-
-document.getElementById('btn-prev').onclick  = () => { weekOffset--; renderSchedule(); };
-document.getElementById('btn-next').onclick  = () => { weekOffset++; renderSchedule(); };
+document.getElementById('btn-prev').onclick = () => { weekOffset--; renderSchedule(); };
+document.getElementById('btn-next').onclick = () => { weekOffset++; renderSchedule(); };
 document.getElementById('btn-today').onclick = () => { weekOffset = 0; renderSchedule(); };
 
+function updateClock() {
+    const n = new Date();
+    const t = document.getElementById('live-time');
+    if(t) t.textContent = n.toLocaleTimeString('id-ID');
+}
 setInterval(updateClock, 1000);
-updateClock();
 loadData();
 listenRealtime();
