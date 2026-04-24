@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jadwal Piket · Kamar Naga Putih</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- BACKGROUND LAYERS -->
+<div class="bg-layer"></div>
+<div class="bg-overlay"></div>
+<div class="bg-glow"></div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-logo">
+          <img src="https://i.imgur.com/mF88miV.png" alt="Naga Putih">
+        </div>
+        <div class="brand-info">
+          <span class="room-tag">Kamar Naga Putih</span>
+          <div class="brand-title">Jadwal Piket 🏠</div>
+        </div>
+      </div>
+      <div class="header-clock">
+        <span class="live-date" id="live-date">—</span>
+        <span class="live-time" id="live-time">—</span>
+      </div>
+    </div>
+    <div class="today-strip loading" id="today-strip">
+      <div class="strip-dot"></div>
+      <span id="strip-text">Memuat jadwal...</span>
+    </div>
+  </header>
+
+  <!-- DENDA -->
+  <div class="denda-wrap">
+    <div class="denda-banner">
+      <div class="denda-left">
+        <div class="denda-icon-wrap">
+          <img src="https://i.imgur.com/mF88miV.png" alt="naga">
+        </div>
+        <div class="denda-info">
+          <div class="denda-tag">Peraturan Kamar</div>
+          <div class="denda-msg">TIDAK MAU PIKET = KENA DENDA!</div>
+        </div>
+      </div>
+      <div class="denda-pill">5.000 LKR</div>
+    </div>
+  </div>
+
+  <!-- SLIDER -->
+  <div class="slider-section">
+    <div class="slider-wrap" id="sliderWrap">
+      <div class="slider-track" id="sliderTrack">
+        <div class="slide"><img src="https://i.imgur.com/GXI413m.png" alt="1" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/KcYNWOi.png" alt="2" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/DNYgS7O.png" alt="3" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/jS1tNw5.png" alt="4" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/BpOwqOt.png" alt="5" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/4C9ji7Z.png" alt="6" draggable="false"></div>
+        <div class="slide"><img src="https://i.imgur.com/L9PJLoa.png" alt="7" draggable="false"></div>
+      </div>
+      <button class="slider-btn prev" id="sPrev">&#8592;</button>
+      <button class="slider-btn next" id="sNext">&#8594;</button>
+      <div class="slide-counter" id="sCtr">1 / 7</div>
+      <div class="slider-dots" id="sDots"></div>
+    </div>
+    <div class="slider-bar"><div class="slider-bar-fill" id="sBar"></div></div>
+  </div>
+
+  <!-- WEEK NAV -->
+  <div class="week-nav">
+    <span class="week-label" id="week-label">—</span>
+    <div class="week-ctrl">
+      <button class="btn-week" id="btn-prev">&#8592;</button>
+      <button class="btn-today" id="btn-today">Hari ini</button>
+      <button class="btn-week" id="btn-next">&#8594;</button>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="schedule" id="sched"></div>
+
+  <!-- MEMBERS -->
+  <div class="section-title">Anggota Kamar</div>
+  <div class="members-grid" id="members"></div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Hari ini</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Libur Minggu</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(34,197,94,0.5)"></div>Selesai</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--brand)"></div>Denda 5K LKR</div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>
