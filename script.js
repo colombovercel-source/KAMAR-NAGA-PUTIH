@@ -109,6 +109,43 @@ async function saveData(tanggal, isDone) {
     showToast('❌ Gagal sinkron');
   }
 }
+
+async function uploadFoto(tanggal, file) {
+    try {
+        showToast('⏳ Mengunggah foto...');
+        
+        // 1. Tentukan nama file unik (pakai tanggal)
+        const fileName = `${tanggal}-${Date.now()}.png`;
+        const filePath = `${fileName}`;
+
+        // 2. Upload ke Storage
+        const { data, error } = await supabaseClient
+            .storage
+            .from('foto-piket')
+            .upload(filePath, file);
+
+        if (error) throw error;
+
+        // 3. Ambil URL Publik foto tersebut
+        const { data: urlData } = supabaseClient
+            .storage
+            .from('foto-piket')
+            .getPublicUrl(filePath);
+
+        const publicUrl = urlData.publicUrl;
+
+        // 4. Simpan URL foto ke Tabel Database
+        await supabaseClient
+            .from('KAMAR-NAGA-PUTIH')
+            .upsert({ tanggal: tanggal, foto_url: publicUrl }, { onConflict: 'tanggal' });
+
+        showToast('✅ Foto berhasil diunggah!');
+        loadData(); // Refresh tampilan
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Gagal upload foto');
+    }
+}
 /* ──────────────────────────────────────────
    5. SLIDER LOGIC
 ────────────────────────────────────────── */
