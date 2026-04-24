@@ -112,8 +112,8 @@ async function saveStatus(tanggal, isDone) {
     const { error } = await db
       .from(TABLE)
       .upsert(
-        { tanggal, is_done: isDone },
-        { onConflict: 'tanggal' }
+  { tanggal: tanggal, is_done: isDone }, 
+  { onConflict: 'tanggal' }
       );
     if (error) throw error;
   } catch (err) {
@@ -132,7 +132,7 @@ async function uploadFoto(tanggal, file) {
     /* 1. Upload ke storage */
     const fileName = `${tanggal}-${Date.now()}.jpg`;
     const { error: upErr } = await db.storage
-      .from(BUCKET)
+      .from(foto-piket)
       .upload(fileName, file, { upsert: true, contentType: file.type });
 
     if (upErr) throw upErr;
@@ -146,10 +146,9 @@ async function uploadFoto(tanggal, file) {
 
     /* 3. Simpan URL ke tabel */
     const { error: dbErr } = await db
-      .from(TABLE)
       .upsert(
-        { tanggal, is_done: true, foto_url: fotoUrl },
-        { onConflict: 'tanggal' }
+  { tanggal: tanggal, is_done: isDone }, 
+  { onConflict: 'tanggal' }
       );
 
     if (dbErr) throw dbErr;
@@ -411,7 +410,7 @@ function renderSchedule() {
 
   /* Bind checkbox */
   grid.querySelectorAll('.done-toggle').forEach(chk => {
-    chk.onchange = async function () {
+    chk.onclick = async function () {
       const dk  = this.dataset.dk;
       const val = this.checked;
 
