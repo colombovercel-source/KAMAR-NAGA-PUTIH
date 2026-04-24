@@ -49,7 +49,7 @@ function getGroupForDate(date) {
 }
 
 /* ──────────────────────────────────────────
-   4. SUPABASE SYNC (LOAD & SAVE)
+   4. SUPABASE SYNC (LOAD, SAVE, & REALTIME)
 ────────────────────────────────────────── */
 async function loadData() {
   try {
@@ -65,9 +65,34 @@ async function loadData() {
     }
     refreshUI();
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('Error load:', err.message);
     refreshUI(); 
   }
+}
+
+// FUNGSI BARU: Mendengarkan perubahan data secara Real-Time
+function listenRealtime() {
+  supabaseClient
+    .channel('perubahan-piket') // Nama channel bebas
+    .on(
+      'postgres_changes', 
+      { event: '*', schema: 'public', table: 'KAMAR-NAGA-PUTIH' }, 
+      (payload) => {
+        console.log('Ada perubahan data!', payload);
+        
+        // Update data lokal berdasarkan perubahan di database
+        const { tanggal, is_done } = payload.new;
+        if (is_done) {
+          doneMap[tanggal] = true;
+        } else {
+          delete doneMap[tanggal];
+        }
+
+        // Jalankan render ulang otomatis tanpa refresh
+        refreshUI();
+      }
+    )
+    .subscribe();
 }
 
 async function saveData(tanggal, isDone) {
@@ -78,16 +103,9 @@ async function saveData(tanggal, isDone) {
     if (error) throw error;
   } catch (err) {
     console.error('Save error:', err.message);
-    showToast('❌ Gagal sinkron ke Cloud');
+    showToast('❌ Gagal sinkron');
   }
 }
-
-function refreshUI() {
-  renderSchedule();
-  renderStrip();
-  renderMembers();
-}
-
 /* ──────────────────────────────────────────
    5. SLIDER LOGIC
 ────────────────────────────────────────── */
