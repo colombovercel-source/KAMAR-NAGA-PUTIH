@@ -274,5 +274,11 @@ document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(
 /* ──────────────────────────────────────────
    8. INIT
 ────────────────────────────────────────── */
-setInterval(clock, 1000); clock();
-loadData();
+setInterval(clock, 1000); 
+clock();
+
+// Jalankan pengambilan data awal
+loadData(); 
+
+// Jalankan pendengar Real-Time
+listenRealtime();
