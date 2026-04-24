@@ -1,120 +1,56 @@
-const SUPABASE_URL = 'URL_PROYEK_ANDA_DI_SINI';
-const SUPABASE_KEY = 'ANON_KEY_ANDA_DI_SINI';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-/* ══════════════════════════════════════════════════
-   JADWAL — 5 HARI SEKALI, mulai 25 Apr 2025
-   Sistem berulang otomatis setiap 30 hari (6 giliran × 5 hari)
-══════════════════════════════════════════════════ */
+/* ──────────────────────────────────────────
+   1. KONFIGURASI SUPABASE
+────────────────────────────────────────── */
+const SUPABASE_URL = 'URL_PROYEK_DI_SINI'; 
+const SUPABASE_KEY = 'ANON_KEY_DI_SINI';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* ──────────────────────────────────────────
+   2. DATA MASTER & JADWAL
+────────────────────────────────────────── */
 const GROUPS = [
-  {
-    persons: ['Jufri', 'Ardi'],
-    photos:  ['https://i.imgur.com/YPuXfjB.png', 'https://i.imgur.com/YPuXfjB.png'],
-  },
-  {
-    persons: ['Reonaldo', 'Agus'],
-    photos:  ['https://i.imgur.com/sDDUjZQ.png', 'https://i.imgur.com/sDDUjZQ.png'],
-  },
-  {
-    persons: ['Farizi', 'Yope Musang'],
-    photos:  ['https://i.imgur.com/JADPNwJ.png', 'https://i.imgur.com/JADPNwJ.png'],
-  },
-  {
-    persons: ['Hasan', 'Geo'],
-    photos:  ['https://i.imgur.com/em5Nyuy.png', 'https://i.imgur.com/em5Nyuy.png'],
-  },
-  {
-    persons: ['Aksan', 'Chandra'],
-    photos:  ['https://i.imgur.com/sDDUjZQ.png', 'https://i.imgur.com/sDDUjZQ.png'],
-  },
-  {
-    persons: ['Imanuel', 'Dandi'],
-    photos:  ['https://i.imgur.com/JADPNwJ.png', 'https://i.imgur.com/JADPNwJ.png'],
-  },
+  { persons: ['Jufri', 'Ardi'], photos: ['https://i.imgur.com/YPuXfjB.png', 'https://i.imgur.com/YPuXfjB.png'] },
+  { persons: ['Reonaldo', 'Agus'], photos: ['https://i.imgur.com/sDDUjZQ.png', 'https://i.imgur.com/sDDUjZQ.png'] },
+  { persons: ['Farizi', 'Yope Musang'], photos: ['https://i.imgur.com/JADPNwJ.png', 'https://i.imgur.com/JADPNwJ.png'] },
+  { persons: ['Hasan', 'Geo'], photos: ['https://i.imgur.com/em5Nyuy.png', 'https://i.imgur.com/em5Nyuy.png'] },
+  { persons: ['Aksan', 'Chandra'], photos: ['https://i.imgur.com/sDDUjZQ.png', 'https://i.imgur.com/sDDUjZQ.png'] },
+  { persons: ['Imanuel', 'Dandi'], photos: ['https://i.imgur.com/JADPNwJ.png', 'https://i.imgur.com/JADPNwJ.png'] },
 ];
 
-/* Anchor: tanggal 25 April 2026 = grup index 0 */
 const ANCHOR = new Date('2026-04-25');
 ANCHOR.setHours(0,0,0,0);
 const CYCLE_DAYS = 5;
-const CYCLE_TOTAL = GROUPS.length * CYCLE_DAYS; /* 30 hari */
+const ALL_MEMBERS = GROUPS.flatMap(g => g.persons.map((p,i)=>({name:p,photo:g.photos[i]})));
 
-/* Hitung grup untuk tanggal tertentu */
+/* ──────────────────────────────────────────
+   3. HELPERS & DATE LOGIC
+────────────────────────────────────────── */
+const today = new Date(); today.setHours(0,0,0,0);
+let weekOffset = 0;
+let doneMap = {};
+
+const DAY_S=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const DAY_F=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const MON_S=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const MON_F=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+function fmtDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+const todayKey = fmtDate(today);
+
 function getGroupForDate(date) {
   const d = new Date(date); d.setHours(0,0,0,0);
   const diff = Math.round((d - ANCHOR) / 86400000);
-  if (diff < 0) return null; /* sebelum jadwal dimulai */
-  /* hanya hari pertama setiap periode (kelipatan 5) */
+  if (diff < 0) return null;
   if (diff % CYCLE_DAYS !== 0) return null;
   const groupIdx = Math.floor(diff / CYCLE_DAYS) % GROUPS.length;
   return GROUPS[groupIdx];
 }
 
-/* semua anggota */
-const ALL_MEMBERS = GROUPS.flatMap(g => g.persons.map((p,i)=>({name:p,photo:g.photos[i]})));
-
 /* ──────────────────────────────────────────
-   SLIDER (2 detik)
+   4. SUPABASE SYNC (LOAD & SAVE)
 ────────────────────────────────────────── */
-(function(){
-  const TOTAL=7, INTERVAL=2000;
-  const track=document.getElementById('sliderTrack');
-  const dots=document.getElementById('sDots');
-  const ctr=document.getElementById('sCtr');
-  const bar=document.getElementById('sBar');
-  let cur=0,timer=null,raf=null,t0=null;
-
-  for(let i=0;i<TOTAL;i++){
-    const d=document.createElement('button');
-    d.className='dot'+(i===0?' active':'');
-    d.onclick=()=>goTo(i,true);
-    dots.appendChild(d);
-  }
-
-  function ui(){
-    track.style.transform=`translateX(-${cur*100}%)`;
-    ctr.textContent=`${cur+1} / ${TOTAL}`;
-    dots.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
-  }
-
-  function goTo(i,m){ cur=(i+TOTAL)%TOTAL; ui(); if(m)reset(); }
-
-  function prog(){
-    cancelAnimationFrame(raf);
-    bar.style.transition='none'; bar.style.width='0%';
-    t0=performance.now();
-    function step(now){
-      const p=Math.min(((now-t0)/INTERVAL)*100,100);
-      bar.style.width=p+'%';
-      if(p<100) raf=requestAnimationFrame(step);
-    }
-    raf=requestAnimationFrame(step);
-  }
-
-  function start(){ clearInterval(timer); prog(); timer=setInterval(()=>{ cur=(cur+1)%TOTAL; ui(); prog(); },INTERVAL); }
-  function reset(){ clearInterval(timer); cancelAnimationFrame(raf); start(); }
-
-  document.getElementById('sPrev').onclick=()=>goTo(cur-1,true);
-  document.getElementById('sNext').onclick=()=>goTo(cur+1,true);
-
-  let tx=null;
-  const w=document.getElementById('sliderWrap');
-  w.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
-  w.addEventListener('touchend',e=>{
-    if(tx===null)return;
-    const d=tx-e.changedTouches[0].clientX;
-    if(Math.abs(d)>40)goTo(d>0?cur+1:cur-1,true);
-    tx=null;
-  });
-  w.onmouseenter=()=>{clearInterval(timer);cancelAnimationFrame(raf);};
-  w.onmouseleave=start;
-  ui(); start();
-})();
-
-/* GANTI BAGIAN LOCALSTORAGE MENJADI INI */
-let doneMap = {};
-
-// Fungsi ambil data dari database
 async function loadData() {
   try {
     const { data, error } = await supabaseClient
@@ -125,107 +61,103 @@ async function loadData() {
 
     doneMap = {};
     if (data) {
-      data.forEach(item => {
-        doneMap[item.tanggal] = item.is_done;
-      });
+      data.forEach(item => { doneMap[item.tanggal] = item.is_done; });
     }
-    
-    // Render ulang setelah data masuk
-    renderSchedule();
-    renderStrip();
-    renderMembers();
+    refreshUI();
   } catch (err) {
-    console.error('Error load Supabase:', err.message);
+    console.error('Gagal memuat data:', err.message);
+    refreshUI(); // Tetap tampilkan meskipun offline/error
   }
 }
 
-// Fungsi simpan data ke database
 async function saveData(tanggal, isDone) {
   try {
     const { error } = await supabaseClient
       .from('jadwal_piket')
       .upsert({ tanggal: tanggal, is_done: isDone }, { onConflict: 'tanggal' });
-
     if (error) throw error;
   } catch (err) {
-    console.error('Error save Supabase:', err.message);
-    showToast('❌ Gagal menyimpan ke cloud');
+    console.error('Gagal menyimpan:', err.message);
+    showToast('❌ Gagal sinkron ke Cloud');
   }
 }
-/* ──────────────────────────────────────────
-   CLOCK
-────────────────────────────────────────── */
-function clock(){
-  const n=new Date();
-  document.getElementById('live-date').textContent=
-    DAY_F[n.getDay()]+', '+n.getDate()+' '+MON_F[n.getMonth()]+' '+n.getFullYear();
-  document.getElementById('live-time').textContent=
-    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+
+function refreshUI() {
+  renderSchedule();
+  renderStrip();
+  renderMembers();
 }
-setInterval(clock,1000); clock();
 
 /* ──────────────────────────────────────────
-   STRIP
+   5. SLIDER LOGIC
+────────────────────────────────────────── */
+(function initSlider(){
+  const TOTAL=7, INTERVAL=2500;
+  const track=document.getElementById('sliderTrack');
+  const dots=document.getElementById('sDots');
+  if(!track || !dots) return;
+  
+  let cur=0;
+  for(let i=0;i<TOTAL;i++){
+    const d=document.createElement('button');
+    d.className='dot'+(i===0?' active':'');
+    d.onclick=()=> { cur=i; updateSlider(); };
+    dots.appendChild(d);
+  }
+
+  function updateSlider(){
+    track.style.transform=`translateX(-${cur*100}%)`;
+    const allDots = dots.querySelectorAll('.dot');
+    allDots.forEach((d,i)=>d.classList.toggle('active',i===cur));
+  }
+  
+  setInterval(()=>{ cur=(cur+1)%TOTAL; updateSlider(); }, INTERVAL);
+})();
+
+/* ──────────────────────────────────────────
+   6. UI RENDERING
 ────────────────────────────────────────── */
 function renderStrip(){
   const strip=document.getElementById('today-strip');
   const txt=document.getElementById('strip-text');
-  strip.className='today-strip';
+  if(!strip || !txt) return;
 
-  if(today.getDay()===0){
+  strip.className = 'today-strip';
+  if(today.getDay() === 0){
     strip.classList.add('holiday');
-    txt.textContent='Hari ini Minggu — Libur piket! 🎉';
+    txt.textContent = 'Hari ini Minggu — Libur piket! 🎉';
     return;
   }
 
-  const grp=getGroupForDate(today);
-  const done=!!doneMap[todayKey];
+  const grp = getGroupForDate(today);
+  const done = !!doneMap[todayKey];
   strip.classList.add('on-duty');
 
   if(grp){
-    txt.innerHTML=done
-      ? `✅ Piket <strong>${grp.persons.join(' & ')}</strong> sudah selesai!`
+    txt.innerHTML = done 
+      ? `✅ Piket <strong>${grp.persons.join(' & ')}</strong> Selesai!` 
       : `🧹 Giliran: <strong>${grp.persons.join(' & ')}</strong> — Semangat!`;
   } else {
-    /* cari jadwal terdekat berikutnya */
-    let next=null;
-    for(let i=1;i<=35;i++){
-      const dd=new Date(today); dd.setDate(today.getDate()+i);
-      const g=getGroupForDate(dd);
-      if(g){ next={date:dd,group:g}; break; }
-    }
-    txt.innerHTML=next
-      ? `📅 Piket berikutnya: <strong>${next.group.persons.join(' & ')}</strong> (${next.date.getDate()} ${MON_S[next.date.getMonth()]})`
-      : `📅 Tidak ada jadwal hari ini`;
+    txt.innerHTML = `📅 Tidak ada jadwal piket hari ini`;
   }
 }
 
-/* ──────────────────────────────────────────
-   WEEK DATES
-────────────────────────────────────────── */
-function getWeekDates(){
+function renderSchedule(){
+  const grid=document.getElementById('sched');
+  if(!grid) return;
+  
   const dow=today.getDay()===0?6:today.getDay()-1;
   const mon=new Date(today);
   mon.setDate(today.getDate()-dow+weekOffset*7);
-  return Array.from({length:7},(_,i)=>{
+  const dates = Array.from({length:7},(_,i)=>{
     const d=new Date(mon); d.setDate(mon.getDate()+i); return d;
   });
-}
 
-/* ──────────────────────────────────────────
-   RENDER SCHEDULE
-────────────────────────────────────────── */
-function renderSchedule(){
-  const grid=document.getElementById('sched');
-  const dates=getWeekDates();
-  const mon=dates[0],sun=dates[6];
-
-  document.getElementById('week-label').textContent=
-    mon.getDate()+' '+MON_S[mon.getMonth()]+' – '+
-    sun.getDate()+' '+MON_S[sun.getMonth()]+' '+sun.getFullYear();
+  const sun = dates[6];
+  document.getElementById('week-label').textContent = 
+    dates[0].getDate()+' '+MON_S[dates[0].getMonth()]+' – '+sun.getDate()+' '+MON_S[sun.getMonth()]+' '+sun.getFullYear();
 
   let html='';
-
   dates.forEach((date,idx)=>{
     const dkey=fmtDate(date);
     const isSun=date.getDay()===0;
@@ -233,125 +165,96 @@ function renderSchedule(){
     const done=!!doneMap[dkey];
     const grp=getGroupForDate(date);
 
-    let cls='day-card';
-    if(isToday) cls+=' is-today live';
-    else if(done) cls+=' done-card';
-    else cls+=' upcoming';
-    if(isSun) cls+=' is-sunday';
-
-    let body='';
-
-    if(isSun){
-      body=`<div class="holiday-pill">🔴 Libur — Minggu</div>`;
-    } else if(grp){
-      const chips=grp.persons.map((p,i)=>`
+    let cls='day-card' + (isToday?' is-today live':'') + (done?' done-card':' upcoming') + (isSun?' is-sunday':'');
+    
+    let body = '';
+    if(isSun) {
+      body = `<div class="holiday-pill">🔴 Libur — Minggu</div>`;
+    } else if(grp) {
+      const chips = grp.persons.map((p,i)=>`
         <div class="person-chip">
-          <div class="avatar-sm ${done?'done-av':''}">
-            <img src="${grp.photos[i]}" alt="${p}" onerror="this.style.display='none'">
-          </div>
+          <div class="avatar-sm ${done?'done-av':''}"><img src="${grp.photos[i]}" onerror="this.style.display='none'"></div>
           <span class="person-nm">${p}</span>
         </div>`).join('');
-
-      body=`
-        <div class="persons-row">
-          <div class="persons-list">${chips}</div>
-          <div class="done-wrap">
-            <label class="done-lbl" for="chk-${dkey}">${done?'✓ Selesai':'Tandai'}</label>
-            <input class="done-toggle" type="checkbox" id="chk-${dkey}" data-dk="${dkey}" ${done?'checked':''}>
-          </div>
-        </div>
-        <div class="period-badge">PERIODE 5 HARI</div>`;
+      
+      body = `<div class="persons-row">
+                <div class="persons-list">${chips}</div>
+                <div class="done-wrap">
+                  <label class="done-lbl" for="chk-${dkey}">${done?'✓ Selesai':'Tandai'}</label>
+                  <input class="done-toggle" type="checkbox" id="chk-${dkey}" data-dk="${dkey}" ${done?'checked':''}>
+                </div>
+              </div>`;
     } else {
-      body=`<div class="no-sched">Tidak ada jadwal piket hari ini</div>`;
+      body = `<div class="no-sched">Tidak ada jadwal piket</div>`;
     }
 
-    html+=`
-      <div class="${cls}" style="animation-delay:${idx*.04}s">
-        <div class="day-row">
-          <div class="date-col">
-            <div class="date-dow">${DAY_S[date.getDay()]}</div>
-            <div class="date-num">${date.getDate()}</div>
-            <div class="date-mon">${MON_S[date.getMonth()]}</div>
-          </div>
-          <div class="card-body">${body}</div>
-        </div>
-      </div>`;
+    html += `<div class="${cls}" style="animation-delay:${idx*0.05}s">
+              <div class="day-row">
+                <div class="date-col">
+                  <div class="date-dow">${DAY_S[date.getDay()]}</div>
+                  <div class="date-num">${date.getDate()}</div>
+                  <div class="date-mon">${MON_S[date.getMonth()]}</div>
+                </div>
+                <div class="card-body">${body}</div>
+              </div>
+            </div>`;
   });
 
-  grid.innerHTML=html;
-
+  grid.innerHTML = html;
   grid.querySelectorAll('.done-toggle').forEach(chk => {
-  chk.addEventListener('change', async function() {
-    const dk = this.dataset.dk;
-    const isChecked = this.checked;
-
-    // Update lokal dulu agar tidak terasa lambat
-    if (isChecked) doneMap[dk] = true;
-    else delete doneMap[dk];
-
-    // Simpan ke Supabase
-    await saveData(dk, isChecked);
-
-    // Update tampilan
-    renderSchedule();
-    renderStrip();
-    renderMembers();
-    showToast(isChecked ? '✅ Tersimpan di Cloud' : '↩ Tanda dibatalkan');
+    chk.onchange = async function() {
+      const dk = this.dataset.dk;
+      const val = this.checked;
+      if(val) doneMap[dk] = true; else delete doneMap[dk];
+      refreshUI();
+      await saveData(dk, val);
+      showToast(val ? '✅ Tersimpan ke Database' : '↩ Tanda dibatalkan');
+    };
   });
-});
 }
 
-/* ──────────────────────────────────────────
-   RENDER MEMBERS
-────────────────────────────────────────── */
 function renderMembers(){
   const grid=document.getElementById('members');
+  if(!grid) return;
   let html='';
-
   ALL_MEMBERS.forEach((m,i)=>{
     let count=0;
-    Object.keys(doneMap).forEach(dkey=>{
-      if(doneMap[dkey]){
-        const g=getGroupForDate(new Date(dkey+'T00:00:00'));
-        if(g&&g.persons.includes(m.name)) count++;
-      }
+    Object.keys(doneMap).forEach(k => {
+      const g = getGroupForDate(new Date(k+'T00:00:00'));
+      if(doneMap[k] && g && g.persons.includes(m.name)) count++;
     });
-
-    html+=`
-      <div class="member-card" style="animation-delay:${i*.04}s">
-        <div class="member-av">
-          <img src="${m.photo}" alt="${m.name}" onerror="this.parentElement.style.background='var(--brand-dim)'">
-        </div>
-        <div class="member-name">${m.name}</div>
-        <div class="member-count">Selesai: <strong>${count}×</strong></div>
-      </div>`;
+    html += `<div class="member-card" style="animation-delay:${i*0.05}s">
+              <div class="member-av"><img src="${m.photo}" alt="${m.name}"></div>
+              <div class="member-name">${m.name}</div>
+              <div class="member-count">Selesai: <strong>${count}×</strong></div>
+            </div>`;
   });
-
-  grid.innerHTML=html;
+  grid.innerHTML = html;
 }
 
 /* ──────────────────────────────────────────
-   TOAST
+   7. CLOCK & TOAST & NAV
 ────────────────────────────────────────── */
+function clock(){
+  const n=new Date();
+  const dEl=document.getElementById('live-date'), tEl=document.getElementById('live-time');
+  if(dEl) dEl.textContent = DAY_F[n.getDay()]+', '+n.getDate()+' '+MON_F[n.getMonth()]+' '+n.getFullYear();
+  if(tEl) tEl.textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+}
+
 function showToast(msg){
   const t=document.getElementById('toast');
+  if(!t) return;
   t.textContent=msg; t.classList.add('show');
-  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
+  setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
-/* ──────────────────────────────────────────
-   WEEK NAV
-────────────────────────────────────────── */
 document.getElementById('btn-prev').onclick=()=>{ weekOffset--; renderSchedule(); };
 document.getElementById('btn-next').onclick=()=>{ weekOffset++; renderSchedule(); };
-document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(); showToast('↩ Kembali ke minggu ini'); };
+document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(); };
 
 /* ──────────────────────────────────────────
-   INIT (Versi Supabase)
+   8. INIT
 ────────────────────────────────────────── */
-// Panggil fungsi untuk mengambil data dari cloud
-loadData(); 
-
-// Jalankan jam dan strip hari ini (tetap diperlukan)
-renderStrip();
-clock(); // Pastikan fungsi clock juga terpanggil jika ada
+setInterval(clock, 1000); clock();
+loadData(); // Ambil data dari Supabase lalu jalankan UI
