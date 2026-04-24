@@ -1,12 +1,12 @@
 /* ──────────────────────────────────────────
    1. KONFIGURASI SUPABASE
 ────────────────────────────────────────── */
-const SUPABASE_URL = 'URL_PROYEK_DI_SINI'; 
-const SUPABASE_KEY = 'ANON_KEY_DI_SINI';
+const SUPABASE_URL = 'https://link-proyek-anda.supabase.co'; // Ganti dengan URL Anda
+const SUPABASE_KEY = 'isi-anon-key-anda-di-sini'; // Ganti dengan Anon Key Anda
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ──────────────────────────────────────────
-   2. DATA MASTER & JADWAL
+   2. DATA MASTER & GRUP
 ────────────────────────────────────────── */
 const GROUPS = [
   { persons: ['Jufri', 'Ardi'], photos: ['https://i.imgur.com/YPuXfjB.png', 'https://i.imgur.com/YPuXfjB.png'] },
@@ -54,7 +54,7 @@ function getGroupForDate(date) {
 async function loadData() {
   try {
     const { data, error } = await supabaseClient
-      .from('jadwal_piket')
+      .from('KAMAR-NAGA-PUTIH') 
       .select('tanggal, is_done');
 
     if (error) throw error;
@@ -65,19 +65,19 @@ async function loadData() {
     }
     refreshUI();
   } catch (err) {
-    console.error('Gagal memuat data:', err.message);
-    refreshUI(); // Tetap tampilkan meskipun offline/error
+    console.error('Error:', err.message);
+    refreshUI(); 
   }
 }
 
 async function saveData(tanggal, isDone) {
   try {
     const { error } = await supabaseClient
-      .from('jadwal_piket')
+      .from('KAMAR-NAGA-PUTIH')
       .upsert({ tanggal: tanggal, is_done: isDone }, { onConflict: 'tanggal' });
     if (error) throw error;
   } catch (err) {
-    console.error('Gagal menyimpan:', err.message);
+    console.error('Save error:', err.message);
     showToast('❌ Gagal sinkron ke Cloud');
   }
 }
@@ -257,4 +257,4 @@ document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(
    8. INIT
 ────────────────────────────────────────── */
 setInterval(clock, 1000); clock();
-loadData(); // Ambil data dari Supabase lalu jalankan UI
+loadData();
