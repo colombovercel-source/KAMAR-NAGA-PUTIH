@@ -112,8 +112,8 @@ async function saveStatus(tanggal, isDone) {
     const { error } = await db
       .from(TABLE)
       .upsert(
-  { tanggal: tanggal, is_done: isDone }, 
-  { onConflict: 'tanggal' }
+        { tanggal, is_done: isDone },
+        { onConflict: 'tanggal' }
       );
     if (error) throw error;
   } catch (err) {
@@ -132,8 +132,9 @@ async function uploadFoto(tanggal, file) {
     /* 1. Upload ke storage */
     const fileName = `${tanggal}-${Date.now()}.jpg`;
     const { error: upErr } = await db.storage
-      .from(foto-piket)
-    .upload(fileName, file, { upsert: true, contentType: file.type });
+      .from(BUCKET)
+      .upload(fileName, file, { upsert: true, contentType: file.type });
+
     if (upErr) throw upErr;
 
     /* 2. Ambil URL publik */
@@ -145,9 +146,10 @@ async function uploadFoto(tanggal, file) {
 
     /* 3. Simpan URL ke tabel */
     const { error: dbErr } = await db
+      .from(TABLE)
       .upsert(
-  { tanggal: tanggal, is_done: isDone }, 
-  { onConflict: 'tanggal' }
+        { tanggal, is_done: true, foto_url: fotoUrl },
+        { onConflict: 'tanggal' }
       );
 
     if (dbErr) throw dbErr;
@@ -409,7 +411,7 @@ function renderSchedule() {
 
   /* Bind checkbox */
   grid.querySelectorAll('.done-toggle').forEach(chk => {
-    chk.onclick = async function () {
+    chk.onchange = async function () {
       const dk  = this.dataset.dk;
       const val = this.checked;
 
@@ -425,13 +427,11 @@ function renderSchedule() {
 
   /* Bind file upload */
   grid.querySelectorAll('input[type="file"][data-dk]').forEach(input => {
-   input.onchange = function () {
-  const file = this.files[0]; // Ambil file fotonya (PENTING!)
-  if (file) {
-    uploadFoto(this.dataset.dk, file);
-    this.value = ''; // Kosongkan input supaya bisa upload ulang foto yang sama
-  }
-};
+    input.onchange = function () {
+      const file = this.files[0];
+      if (file) uploadFoto(this.dataset.dk, file);
+    };
+  });
 }
 
 /* ══════════════════════════════════════════════════════
