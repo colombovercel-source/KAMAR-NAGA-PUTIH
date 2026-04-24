@@ -40,7 +40,7 @@
     </div>
   </header>
 
-  <!-- DENDA -->
+  <!-- DENDA BANNER -->
   <div class="denda-wrap">
     <div class="denda-banner">
       <div class="denda-left">
@@ -56,7 +56,7 @@
     </div>
   </div>
 
-  <!-- SLIDER -->
+  <!-- BANNER SLIDER -->
   <div class="slider-section">
     <div class="slider-wrap" id="sliderWrap">
       <div class="slider-track" id="sliderTrack">
@@ -73,10 +73,12 @@
       <div class="slide-counter" id="sCtr">1 / 7</div>
       <div class="slider-dots" id="sDots"></div>
     </div>
-    <div class="slider-bar"><div class="slider-bar-fill" id="sBar"></div></div>
+    <div class="slider-bar">
+      <div class="slider-bar-fill" id="sBar"></div>
+    </div>
   </div>
 
-  <!-- WEEK NAV -->
+  <!-- NAVIGASI MINGGU -->
   <div class="week-nav">
     <span class="week-label" id="week-label">—</span>
     <div class="week-ctrl">
@@ -86,24 +88,37 @@
     </div>
   </div>
 
-  <!-- SCHEDULE -->
+  <!-- JADWAL MINGGUAN -->
   <div class="schedule" id="sched"></div>
 
-  <!-- MEMBERS -->
+  <!-- ANGGOTA KAMAR -->
   <div class="section-title">Anggota Kamar</div>
   <div class="members-grid" id="members"></div>
 
-  <!-- LEGEND -->
+  <!-- LEGENDA -->
   <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Hari ini</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Libur Minggu</div>
-    <div class="legend-item"><div class="legend-dot" style="background:rgba(34,197,94,0.5)"></div>Selesai</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--brand)"></div>Denda 5K LKR</div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--ok)"></div>Hari ini
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--danger)"></div>Libur Minggu
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:rgba(34,197,94,0.5)"></div>Selesai
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--brand)"></div>Denda 5K LKR
+    </div>
   </div>
 
 </div>
+
+<!-- TOAST NOTIFIKASI -->
 <div class="toast" id="toast"></div>
+
+<!-- SUPABASE SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SCRIPT UTAMA -->
 <script src="script.js"></script>
 </body>
 </html>
