@@ -583,3 +583,12 @@ body {
   .brand-title { font-size: 1rem; }
   .brand-logo { width: 40px; height: 40px; border-radius: 11px; }
 }
+.photo-section img {
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease;
+}
+.photo-section img:active {
+  transform: scale(1.5); /* Foto membesar saat ditekan di HP */
+  position: relative;
+  z-index: 999;
+}
