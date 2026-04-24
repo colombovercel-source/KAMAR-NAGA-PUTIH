@@ -1,10 +1,13 @@
 /* ──────────────────────────────────────────
    1. KONFIGURASI SUPABASE
 ────────────────────────────────────────── */
-const SUPABASE_URL = 'https://link-proyek-anda.supabase.co'; // Ganti dengan URL Anda
-const SUPABASE_KEY = 'isi-anon-key-anda-di-sini'; // Ganti dengan Anon Key Anda
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Pakai URL proyek Anda (cek di menu Settings > API jika belum ada)
+const SUPABASE_URL = 'https://lzjmyildurannngskrcyo.supabase.co'; 
 
+// Pakai kode kedua yang Anda kirim (Anon Key)
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6am15aWxkdXJhbm5nc2tyY3lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyMzU1NjUsImV4cCI6MjA4NjgxMTU2NX0.ybyZTOLYGMOjM_SucsfpsVU3WaL8qVY4m-1XYdK2J7Q';
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ──────────────────────────────────────────
    2. DATA MASTER & GRUP
 ────────────────────────────────────────── */
