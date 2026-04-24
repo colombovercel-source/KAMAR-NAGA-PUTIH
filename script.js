@@ -1,4 +1,3 @@
-<script>
 /* ══════════════════════════════════════════════════
    JADWAL — 5 HARI SEKALI, mulai 25 Apr 2025
    Sistem berulang otomatis setiap 30 hari (6 giliran × 5 hari)
@@ -326,4 +325,3 @@ document.getElementById('btn-today').onclick=()=>{ weekOffset=0; renderSchedule(
 renderStrip();
 renderSchedule();
 renderMembers();
-</script>
